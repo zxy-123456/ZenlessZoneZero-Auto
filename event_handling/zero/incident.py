@@ -98,9 +98,9 @@ def action(positions: Dict[str, Position]):
     control.click(pos.x, pos.y)
 
 
-@task.page(name="目标位置", target_texts=["关键进展", "^确认继续$"])
+@task.page(name="目标位置", target_texts=["进入后无法返回"])
 def action(positions: Dict[str, Position]):
-    pos = positions.get("^确认继续$")
+    pos = positions.get("进入后无法返回")
     control.click(pos.x, pos.y)
     # 进入战斗
     if zero_cfg.modeSelect == 1:  # 全通模式(无业绩)
