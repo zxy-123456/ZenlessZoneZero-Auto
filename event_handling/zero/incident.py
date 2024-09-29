@@ -270,11 +270,9 @@ def action():
 # 现在仅在刚进入的时候进行判断，后续不再判断
 @task.page(name="进入特殊区域", target_texts=["进入特殊区域"])
 def action(screen: np.ndarray):
-    special_areas = ["0044"]
     special_areas = []
     special_areas = list(map(lambda x: template(x), special_areas))
     ocr_results = task.ocr(screen)
-    need_exit = False
     for ocr_result in ocr_results:
         for special_area in special_areas:
             if special_area.search(ocr_result.text):
