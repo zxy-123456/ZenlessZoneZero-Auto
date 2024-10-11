@@ -355,14 +355,14 @@ def turn():
 # 战斗逻辑
 @task.page(name="战斗中", target_texts=["^Space$"])
 def action():
+    start_fight_time = datetime.now()
+    time_interval = 20
     # 运行控制
     run_flag = threading.Event()  # 是否允许继续运行
     run_flag.set()
-
     execute_tactic_event = threading.Event()  # 检测到光效后阻塞战斗逻辑
     detector_task_event = threading.Event()  # 阻塞红黄光检测
     fighting_flag = threading.Event()  # 是否继续战斗
-    technique_event = threading.Event()  # 终结技充满事件
     # 启动弹反逻辑
     det_task = Thread(
         target=detector_task, args=(run_flag, execute_tactic_event, detector_task_event)
@@ -381,6 +381,11 @@ def action():
         target=technique_detection, args=(run_flag, execute_tactic_event)
     )
     technique_task.start()
+
+    # 开局先向前跑1.5s再开始寻路，然后转向
+    control.head(1.5)
+    turn()
+
     # 开始战斗
     execute_tactic_event.set()
     fighting_flag.set()
@@ -389,20 +394,34 @@ def action():
         if not task.is_running():
             run_flag.clear()
             return
+        fight_time = (datetime.now() - start_fight_time).total_seconds()  # 战斗用时
+        if fight_time > zero_cfg.maxFightTime:  # 超出最大战斗时间，直接退出
+            run_flag.clear()
+            control.esc()
+            return  # 退出战斗
+        if fight_time > time_interval:  # 每隔约20s播报一次战斗用时
+            logger.debug(
+                f"当前战斗时长{fight_time:.2f}s"
+                f" 剩余战斗时间{zero_cfg.maxFightTime - fight_time:.2f}s"
+            )
+            time_interval += 20
+
         # 检查是否还在战斗,连续判断四次，防止因为战斗动画的原因产生误判退出
         if is_not_fight("Space"):
             time.sleep(1)
-            if not task.is_running():
-                run_flag.clear()
-                return
             if is_not_fight("Space"):
                 time.sleep(1)
-                if not task.is_running():
-                    run_flag.clear()
-                    return
                 if is_not_fight("Space"):
                     time.sleep(1)
                     if is_not_fight("Space"):
                         run_flag.clear()
                         return  # 退出战斗
-        time.sleep(1)  # 每秒检查一次是否还在战斗
+
+        # 检测是否需要寻路
+        h1, w1, max_val, max_loc = search_point()
+        if max_val > 0.8:  # 匹配成功
+            fighting_flag.clear()  # 暂停战斗
+            turn()
+            fighting_flag.set()  # 继续战斗
+        else:
+            time.sleep(1)  # 延迟一秒继续匹配
